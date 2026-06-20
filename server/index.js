@@ -3,12 +3,21 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const { initDb } = require('./db/database');
+const { initDb, getDb } = require('./db/database');
 
 async function start() {
-  // 初始化数据库（sql.js 异步加载 WASM）
+  // 初始化数据库
   await initDb();
   console.log('📦 数据库已就绪');
+
+  // 自动填充种子数据（如果是空库）
+  const db = getDb();
+  const teaCount = db.prepare('SELECT COUNT(*) as count FROM teas').get();
+  if (teaCount.count === 0) {
+    const { seed } = require('./db/seed');
+    seed();
+    console.log('🌱 自动导入种子数据');
+  }
 
   const authRoutes = require('./routes/auth');
   const teaRoutes = require('./routes/teas');
