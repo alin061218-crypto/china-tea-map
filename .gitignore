@@ -1,0 +1,4 @@
+node_modules/
+tea-map.db
+.env
+client/dist/
