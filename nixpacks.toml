@@ -1,12 +1,12 @@
-# Railway deployment configuration
+# Railway deploy config
 [phases.setup]
 nixPkgs = ["nodejs"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --ignore-scripts && cd client && npm install && cd ../server && npm install"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["cd client && npm run build"]
 
 [start]
-cmd = "npm start"
+cmd = "cd server && node index.js"

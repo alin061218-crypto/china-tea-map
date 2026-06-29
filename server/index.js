@@ -7,16 +7,29 @@ const { initDb, getDb } = require('./db/database');
 
 async function start() {
   // 初始化数据库
-  await initDb();
-  console.log('📦 数据库已就绪');
+  try {
+    console.log('📦 正在初始化数据库...');
+    await initDb();
+    console.log('📦 数据库已就绪');
+  } catch (e) {
+    console.error('数据库初始化失败:', e.message);
+    // 继续启动，即使DB失败也能响应health check
+  }
 
   // 自动填充种子数据（如果是空库）
-  const db = getDb();
-  const teaCount = db.prepare('SELECT COUNT(*) as count FROM teas').get();
-  if (teaCount.count === 0) {
-    const { seed } = require('./db/seed');
-    seed();
-    console.log('🌱 自动导入种子数据');
+  try {
+    const db = getDb();
+    if (db) {
+      const teaCount = db.prepare('SELECT COUNT(*) as count FROM teas').get();
+      console.log('📊 当前茶数据:', teaCount?.count ?? 'unknown');
+      if (!teaCount || teaCount.count === 0) {
+        const { seed } = require('./db/seed');
+        seed();
+        console.log('🌱 自动导入种子数据');
+      }
+    }
+  } catch (e) {
+    console.error('种子数据检查失败:', e.message);
   }
 
   const authRoutes = require('./routes/auth');
