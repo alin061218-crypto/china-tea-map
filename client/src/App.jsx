@@ -12,9 +12,9 @@ import AdminUsers from './pages/Admin/AdminUsers';
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-paper paper-texture">
+    <div className="h-screen paper-bg overflow-hidden">
       <Navbar />
-      <main className="pt-14">
+      <main className="h-[calc(100vh-3.5rem)] pt-14">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/map" element={<MapPage />} />

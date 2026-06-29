@@ -1,52 +1,62 @@
 import { Link } from 'react-router-dom';
-import { useSeason } from '../contexts/SeasonContext';
+import { useSeason, SEASONS } from '../contexts/SeasonContext';
+import CloudAnimation from '../components/Effects/CloudAnimation';
 
 export default function HomePage() {
-  const { season, SEASONS } = useSeason();
+  const { season } = useSeason();
   const s = SEASONS[season];
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-6 text-center"
-      style={{ background: `var(--season-bg, #faf6f0)` }}>
-      {/* 装饰性背景山水 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20"
-        style={{
-          background: `
-            radial-gradient(ellipse 80% 60% at 50% 30%, ${season === 'spring' ? '#c8dcc0' : season === 'summer' ? '#b5c9b0' : season === 'autumn' ? '#dcc8a0' : '#c0c5d0'} 0%, transparent 60%),
-            radial-gradient(ellipse 60% 50% at 20% 80%, rgba(200,192,180,0.3) 0%, transparent 50%),
-            radial-gradient(ellipse 50% 40% at 80% 70%, rgba(180,185,200,0.2) 0%, transparent 40%)
-          `
-        }}
-      />
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center relative overflow-hidden paper-bg">
 
-      {/* 主标题 */}
-      <div className="relative z-10">
-        <div className="text-8xl mb-4">{s.icon}</div>
-        <h1 className="text-5xl md:text-7xl font-serif font-black text-ink-darkest mb-4 ink-text tracking-wider">
+      {/* 云雾背景 */}
+      <CloudAnimation />
+
+      {/* 远山装饰 */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute bottom-0 left-0 right-0 h-64 opacity-20"
+          style={{
+            background: `
+              radial-gradient(ellipse 80% 80% at 30% 90%, rgba(160,175,155,0.4) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 70% at 70% 85%, rgba(175,160,145,0.3) 0%, transparent 55%),
+              radial-gradient(ellipse 70% 60% at 50% 95%, rgba(190,185,175,0.25) 0%, transparent 50%)
+            `,
+            transition: 'all var(--season-transition)',
+          }}
+        />
+      </div>
+
+      {/* 主内容 */}
+      <div className="relative z-10 text-center px-6">
+        {/* Logo */}
+        <div className="w-20 h-20 mx-auto mb-3 rounded-full flex items-center justify-center text-4xl"
+          style={{ background: 'rgba(200,220,200,0.25)', backdropFilter: 'blur(8px)' }}>
+          🍵
+        </div>
+
+        {/* 标题 */}
+        <h1 className="text-5xl md:text-6xl font-serif font-black text-ink-darkest mb-3 tracking-wider"
+          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           茶韵中国
         </h1>
-        <p className="text-xl text-ink-medium mb-2 font-light tracking-widest">
-          一叶知春秋 · 一盏品山河
-        </p>
-        <p className="text-sm text-ink-light mb-12">
-          探索全国各地的特色茶叶，感受千年茶文化的魅力
-        </p>
+        <p className="text-base text-ink-medium mb-1 tracking-widest">一叶知春秋 · 一盏品山河</p>
+        <p className="text-xs text-ink-light mb-10">探索全国各地的特色茶叶，感受千年茶文化魅力</p>
 
         {/* CTA */}
         <Link to="/map"
-          className="btn-seal text-lg px-10 py-3 no-underline inline-block"
-          style={{ fontSize: '18px', padding: '14px 40px' }}>
-          {s.icon} 进入茶韵地图
+          className="btn-cta text-lg px-10 py-3.5 no-underline"
+          style={{ fontSize: '17px', padding: '14px 44px', fontFamily: 'inherit' }}>
+          {s.emoji} 进入茶韵地图
         </Link>
 
         {/* 四季预览 */}
-        <div className="flex gap-4 justify-center mt-16">
+        <div className="flex gap-3 justify-center mt-14">
           {Object.entries(SEASONS).map(([key, val]) => (
             <Link key={key} to="/map"
-              className={`no-underline w-20 h-20 rounded-2xl flex flex-col items-center justify-center transition-all
+              className={`no-underline w-16 h-16 rounded-2xl flex flex-col items-center justify-center transition-all duration-500
                 ${key === season ? 'bg-white/80 shadow-card scale-110' : 'bg-white/40 hover:bg-white/60'}`}>
-              <span className="text-2xl">{val.icon}</span>
-              <span className="text-xs text-ink-medium mt-1">{val.name}</span>
+              <span className="text-xl">{val.emoji}</span>
+              <span className="text-2xs text-ink-light mt-0.5" style={{ fontSize: '10px' }}>{val.name}</span>
             </Link>
           ))}
         </div>
