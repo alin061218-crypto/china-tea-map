@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import * as d3 from 'd3';
 import { useSeason } from '../../contexts/SeasonContext';
 
@@ -48,14 +48,19 @@ export default function TeaMap({ teas, onTeaSelect }) {
   const zoomRef = useRef(null);
   const gRef = useRef(null);
 
-  // 响应式尺寸
-  useEffect(() => {
-    const obs = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect;
-      setDims({ w: width, h: height });
-    });
-    if (containerRef.current) obs.observe(containerRef.current);
-    return () => obs.disconnect();
+  // 响应式尺寸（useLayoutEffect 确保首次渲染前获取正确尺寸）
+  useLayoutEffect(() => {
+    const updateDims = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setDims({ w: rect.width, h: rect.height });
+        }
+      }
+    };
+    updateDims();
+    window.addEventListener('resize', updateDims);
+    return () => window.removeEventListener('resize', updateDims);
   }, []);
 
   // 主渲染
