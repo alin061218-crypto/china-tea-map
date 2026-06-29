@@ -32,9 +32,9 @@ function buildMarkers(teas, season, projection) {
       x, y,
       inSeason,
       isMountain: !!t.is_mountain,
-      size: inSeason ? 12 : 8,
-      color: inSeason ? 'var(--seal-red)' : 'var(--season-marker-base)',
-      opacity: inSeason ? 0.9 : 0.55,
+      size: inSeason ? 14 : 9,
+      color: inSeason ? '#c75b5b' : '#8ba888',
+      opacity: inSeason ? 0.95 : 0.6,
     };
   }).filter(Boolean);
 }
@@ -74,8 +74,8 @@ export default function TeaMap({ teas, onTeaSelect }) {
     // 投影
     const projection = d3.geoMercator()
       .center([104.5, 36])
-      .scale(Math.min(w * 0.75, h * 0.62))
-      .translate([w / 2, h / 2 - 10]);
+      .scale(Math.min(w, h) * 0.55)
+      .translate([w / 2, h / 2]);
 
     const pathGen = d3.geoPath(projection);
 
@@ -92,15 +92,21 @@ export default function TeaMap({ teas, onTeaSelect }) {
     svg.call(zoom);
     zoomRef.current = zoom;
 
-    // ── 省份层（浅金浮雕线） ──
+    // ── 背景/海洋（淡米色） ──
+    g.append('rect')
+      .attr('x', -w * 2).attr('y', -h * 2)
+      .attr('width', w * 4).attr('height', h * 4)
+      .attr('fill', '#f5f0e8');
+
+    // ── 省份层 ──
     g.append('g').attr('class', 'provinces')
       .selectAll('path')
       .data(geoData.features)
       .join('path')
       .attr('d', pathGen)
-      .attr('fill', '#faf6f0')
-      .attr('stroke', 'rgba(180,160,120,0.3)')
-      .attr('stroke-width', 0.6)
+      .attr('fill', '#faf7f2')
+      .attr('stroke', 'rgba(170,150,120,0.45)')
+      .attr('stroke-width', 0.8)
       .attr('vector-effect', 'non-scaling-stroke');
 
     // ── 茶叶点位 ──
@@ -124,16 +130,16 @@ export default function TeaMap({ teas, onTeaSelect }) {
       } else {
         // 茶叶标记 — 外晕
         group.append('circle')
-          .attr('r', m.inSeason ? 14 : 9)
-          .attr('fill', m.inSeason ? 'rgba(199,91,91,0.12)' : 'rgba(150,150,150,0.08)')
+          .attr('r', m.inSeason ? 16 : 10)
+          .attr('fill', m.inSeason ? 'rgba(199,91,91,0.15)' : 'rgba(139,168,136,0.12)')
           .attr('class', 'glow');
         // 主体
         group.append('circle')
           .attr('r', m.size)
-          .attr('fill', m.inSeason ? 'var(--seal-red)' : 'var(--season-marker-base)')
+          .attr('fill', m.color)
           .attr('opacity', m.opacity)
           .attr('stroke', '#fff')
-          .attr('stroke-width', 1.2)
+          .attr('stroke-width', 1.5)
           .style('transition', 'all 0.6s');
       }
 
@@ -153,7 +159,7 @@ export default function TeaMap({ teas, onTeaSelect }) {
     });
 
     // 初始居中
-    svg.call(zoom.transform, d3.zoomIdentity.translate(w * 0.12, h * 0.05).scale(0.95));
+    svg.call(zoom.transform, d3.zoomIdentity);
   }
 
   // 季节切换时更新标记样式

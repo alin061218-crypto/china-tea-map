@@ -36,25 +36,13 @@ export default function MapPage() {
       {/* 雾流动效 */}
       <CloudAnimation />
 
-      {/* 顶部信息栏 */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex justify-center pt-3 pb-2"
-        style={{ background: 'linear-gradient(180deg, rgba(250,246,240,0.95) 0%, transparent 100%)' }}>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-0.5">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-lg"
-              style={{ background: 'rgba(180,200,170,0.3)' }}>
-              🍵
-            </div>
-            <h1 className="text-base font-serif font-bold text-ink-darkest tracking-wider">茶韵中国</h1>
-          </div>
-          <p className="text-xs text-ink-light tracking-wide">
-            已打卡<span className="text-seal-red font-medium mx-0.5">{user ? 0 : '—'}</span>茶区 / 共<span className="text-ink-medium mx-0.5">{stats.teaCities}</span>产区，
-            <span className="text-seal-red font-medium mx-0.5">{stats.totalTeas}</span>款茶品
-          </p>
-          <p className="text-xs text-ink-light mt-0.5">
-            {seasonTeas.length > 0 && `🌸 当季可采 ${seasonTeas.length} 种`}
-          </p>
-        </div>
+      {/* 顶部统计悬浮条 */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex justify-center pt-2 pb-1 pointer-events-none"
+        style={{ background: 'linear-gradient(180deg, rgba(250,246,240,0.9) 0%, transparent 100%)' }}>
+        <p className="text-xs text-ink-light tracking-wide">
+          共<span className="text-ink-dark font-medium mx-0.5">{stats.teaCities}</span>产区 · <span className="text-ink-dark font-medium">{stats.totalTeas}</span>款茶品
+          {seasonTeas.length > 0 && <span className="ml-1">· 🌸 当季 <span className="text-seal-red font-medium">{seasonTeas.length}</span> 种</span>}
+        </p>
       </div>
 
       {/* 地图区域 */}
