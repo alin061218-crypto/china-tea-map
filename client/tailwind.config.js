@@ -41,8 +41,8 @@ export default {
         },
       },
       fontFamily: {
-        serif: ['"Noto Serif SC"', 'serif'],
-        sans: ['"Noto Sans SC"', 'sans-serif'],
+        serif: ['"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', '"SimSun"', 'serif'],
+        sans: ['"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', '"Noto Sans SC"', 'sans-serif'],
       },
       borderRadius: {
         card: '16px',
