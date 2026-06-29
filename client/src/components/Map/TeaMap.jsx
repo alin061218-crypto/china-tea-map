@@ -32,7 +32,7 @@ function buildMarkers(teas, season, projection) {
       x, y,
       inSeason,
       isMountain: !!t.is_mountain,
-      size: inSeason ? 14 : 9,
+      size: inSeason ? 18 : 11,
       color: inSeason ? '#c75b5b' : '#8ba888',
       opacity: inSeason ? 0.95 : 0.6,
     };
@@ -74,7 +74,7 @@ export default function TeaMap({ teas, onTeaSelect }) {
     // 投影
     const projection = d3.geoMercator()
       .center([104.5, 36])
-      .scale(Math.min(w, h) * 0.55)
+      .scale(Math.max(w, h) * 0.65)
       .translate([w / 2, h / 2]);
 
     const pathGen = d3.geoPath(projection);
@@ -92,11 +92,17 @@ export default function TeaMap({ teas, onTeaSelect }) {
     svg.call(zoom);
     zoomRef.current = zoom;
 
-    // ── 背景/海洋（淡米色） ──
-    g.append('rect')
-      .attr('x', -w * 2).attr('y', -h * 2)
-      .attr('width', w * 4).attr('height', h * 4)
-      .attr('fill', '#f5f0e8');
+    // ── SVG背景 ──
+    svg.append('rect')
+      .attr('width', '100%').attr('height', '100%')
+      .attr('fill', '#f0ebe0');
+
+    // ── 调试：如果地图不渲染，至少能看到这个圆圈 ──
+    g.append('circle')
+      .attr('cx', w/2).attr('cy', h/2)
+      .attr('r', 30)
+      .attr('fill', '#c75b5b')
+      .attr('opacity', 0.5);
 
     // ── 省份层 ──
     g.append('g').attr('class', 'provinces')
