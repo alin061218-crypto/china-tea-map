@@ -55,15 +55,17 @@ async function start() {
   app.use('/api/checkins', checkinRoutes);
   app.use('/api/admin', adminRoutes);
 
-  // Serve static frontend in production
-  if (process.env.NODE_ENV === 'production') {
-    const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  // Serve static frontend (when built)
+  const fs = require('fs');
+  const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
     app.get('*', (req, res) => {
       if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(clientDist, 'index.html'));
       }
     });
+    console.log('📦 前端静态文件已启用:', clientDist);
   }
 
   // Health check
