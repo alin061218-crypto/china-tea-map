@@ -1,0 +1,69 @@
+Tea Atlas — 茶照片清单
+放置路径: C:\Users\xiaoruo\Desktop\tea\client\public\images\tea\
+命名规则: {茶id}.jpg 或 {茶id}.png
+推荐尺寸: 400×300px 以上, 横向 4:3 或 3:2
+============================================
+
+绿茶 (11款)
+-----------
+1. longjing.jpg      西湖龙井    浙江·杭州
+2. biluochun.jpg     碧螺春      江苏·苏州
+3. maofeng.jpg       黄山毛峰    安徽·黄山
+4. guapian.jpg       六安瓜片    安徽·六安
+5. xinyang.jpg       信阳毛尖    河南·信阳
+6. yunwu.jpg         庐山云雾    江西·九江
+7. mengding.jpg      蒙顶甘露    四川·雅安
+8. enshi.jpg         恩施玉露    湖北·恩施
+9. laoshan.jpg       崂山绿茶    山东·青岛
+10. duyun-maojian.jpg 都匀毛尖    贵州·都匀
+11. yongchuan-xiuya.jpg 永川秀芽  重庆·永川
+
+乌龙茶 (4款)
+-----------
+12. dahongpao.jpg    大红袍      福建·武夷山
+13. tieguanyin.jpg   铁观音      福建·安溪
+14. dancong.jpg      凤凰单丛    广东·潮州
+15. dongding.jpg     冻顶乌龙    台湾·南投
+
+红茶 (4款)
+-----------
+16. keemun.jpg       祁门红茶    安徽·黄山
+17. dianhong.jpg     滇红        云南·临沧
+18. xiaozhong.jpg    正山小种    福建·武夷山
+19. yingde-hongcha.jpg 英德红茶  广东·英德
+
+白茶 (2款)
+-----------
+20. yinzhen.jpg      白毫银针    福建·福鼎
+21. mudan.jpg        白牡丹      福建·政和
+
+黄茶 (2款)
+-----------
+22. junshan.jpg      君山银针    湖南·岳阳
+23. huoshan.jpg      霍山黄芽    安徽·霍山
+
+黑茶 (3款)
+-----------
+24. puer.jpg         普洱茶      云南·普洱
+25. liubao.jpg       六堡茶      广西·梧州
+26. anhua-heicha.jpg 安化黑茶    湖南·安化
+
+花茶 (2款)
+-----------
+27. jasmine.jpg      茉莉花茶    福建·福州
+28. hengxian.jpg     横县茉莉花茶 广西·南宁
+
+其他 (8款)
+-----------
+29. anji-baicha.jpg  安吉白茶    浙江·安吉
+30. dongfang-meiren.jpg 东方美人  台湾·新竹
+31. hanzhong-xianhao.jpg 汉中仙毫 陕西·汉中
+32. jingjunmei.jpg   金骏眉      福建·武夷山
+33. mengding-huangya.jpg 蒙顶黄芽 四川·雅安
+34. taiping-houkui.jpg 太平猴魁  安徽·黄山
+35. wuzhishan.jpg    五指山红茶  海南·五指山
+36. yigong.jpg       易贡茶      西藏·林芝
+
+============================================
+共计: 36 款茶
+每个文件命名必须和上面完全一致, 大小写敏感

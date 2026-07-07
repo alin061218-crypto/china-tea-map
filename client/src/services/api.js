@@ -34,6 +34,7 @@ export const authAPI = {
 };
 
 // ── Teas ──
+/** @unused — UI uses static data (demoTeas.js) */
 export const teaAPI = {
   getAll: () => api.get('/teas'),
   getById: (id) => api.get(`/teas/${id}`),
@@ -43,6 +44,7 @@ export const teaAPI = {
 };
 
 // ── Favorites ──
+/** @unused — UI uses localStorage */
 export const favAPI = {
   getAll: () => api.get('/favorites'),
   add: (tea_id) => api.post('/favorites', { tea_id }),
@@ -51,6 +53,7 @@ export const favAPI = {
 };
 
 // ── Checkins ──
+/** @unused — no checkin UI in client */
 export const checkinAPI = {
   getAll: () => api.get('/checkins'),
   add: (city_name) => api.post('/checkins', { city_name }),
@@ -58,6 +61,7 @@ export const checkinAPI = {
 };
 
 // ── Admin ──
+/** @unused — no admin UI in client */
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),
   getTeas: () => api.get('/admin/teas'),

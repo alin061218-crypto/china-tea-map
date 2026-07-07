@@ -1,240 +1,402 @@
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+﻿import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
+
 import { useSeason } from '../../contexts/SeasonContext';
 
-// ── 加载 GeoJSON ──
-let _geoJSON = null;
+import { EffectController } from '../../effects/EffectController';
+import { getRegionAtmosphereProfile, normalizeRegionName } from '../../effects/regionAtmosphereProfiles';
+
+import mountainLayer1 from '../../assets/generated/map-mountains-layer-1-farthest.png';
+import mountainLayer2 from '../../assets/generated/map-mountains-layer-2-mid-far.png';
+import mountainLayer3 from '../../assets/generated/map-mountains-layer-3-mid-near.png';
+import mountainLayer4 from '../../assets/generated/map-mountains-layer-4-near-gold.png';
+import riverTrackMountainsLayer from '../../assets/generated/map-river-track-mountains.png';
+
+import MapEffectLayer from '../Effects/MapEffectLayer';
+
+let geoCache = null;
 async function loadGeo() {
-  if (_geoJSON) return _geoJSON;
-  const r = await fetch('/china.json');
-  _geoJSON = await r.json();
-  return _geoJSON;
+  if (geoCache) return geoCache;
+  const response = await fetch('/china.json');
+  geoCache = await response.json();
+  return geoCache;
 }
 
-// ── SVG 茶叶图标路径 ──
-const TEA_ICON = `
-  M0,-8 C2,-8 4,-6 4,-3 L3,2 L2,4 L0,7 L-2,4 L-3,2 L-4,-3
-  C-4,-6 -2,-8 0,-8 Z
-  M0,-6 L0,1 M-2,-3 L2,-3
-`;
-
-// ── 山脉三角形图标 ──
-const MOUNTAIN_ICON = 'M0,-7 L-6,3 L0,0 L6,3 Z';
-
-// ── 生成茶叶点位数据 ──
-function buildMarkers(teas, season, projection) {
-  return teas.map(t => {
-    const [x, y] = projection([t.longitude, t.latitude]);
-    if (!x || !y || isNaN(x) || isNaN(y)) return null;
-    const inSeason = t.seasons?.includes(season);
-    return {
-      ...t,
-      x, y,
-      inSeason,
-      isMountain: !!t.is_mountain,
-      size: inSeason ? 18 : 11,
-      color: inSeason ? '#c75b5b' : '#8ba888',
-      opacity: inSeason ? 0.95 : 0.6,
-    };
-  }).filter(Boolean);
+let neighborsCache = null;
+async function loadNeighbors() {
+  if (neighborsCache) return neighborsCache;
+  const response = await fetch('/neighbors.json');
+  neighborsCache = await response.json();
+  return neighborsCache;
 }
 
-export default function TeaMap({ teas, onTeaSelect }) {
-  const svgRef = useRef(null);
+const CHINA_BOUNDS = { minLon: 73, maxLon: 135, minLat: 18, maxLat: 54 };
+const ATLAS_BOUNDS = { minLon: 55, maxLon: 150, minLat: 0, maxLat: 60 };
+
+function scaleRgbaAlpha(color, scale = 0.6) {
+  const match = color?.match(/^rgba\(([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\)$/);
+  if (!match) return color;
+  const [, r, g, b, alpha] = match;
+  const nextAlpha = Math.max(0, Math.min(1, Number(alpha) * scale));
+  return `rgba(${r.trim()}, ${g.trim()}, ${b.trim()}, ${nextAlpha.toFixed(3)})`;
+}
+
+function MountainLayerImage({ href, atlasRect, depth = 1 }) {
+  if (!atlasRect) return null;
+  return (
+    <image
+      className="mountain-raster-image"
+      data-depth={depth}
+      href={href}
+      x={atlasRect.x}
+      y={atlasRect.y}
+      width={atlasRect.width}
+      height={atlasRect.height}
+      preserveAspectRatio="none"
+      style={{ pointerEvents: 'none' }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function makePlanarProjector(dims) {
+  const frame = {
+    left: dims.width * 0.045,
+    top: dims.height * 0.075,
+    width: dims.width * 0.86,
+    height: dims.height * 0.82,
+  };
+  const lonSpan = CHINA_BOUNDS.maxLon - CHINA_BOUNDS.minLon;
+  const latSpan = CHINA_BOUNDS.maxLat - CHINA_BOUNDS.minLat;
+  const scale = Math.min(frame.width / lonSpan, frame.height / latSpan);
+  const mapWidth = lonSpan * scale;
+  const mapHeight = latSpan * scale;
+  const left = (dims.width - mapWidth) / 2 - dims.width * 0.025;
+  const top = frame.top + (frame.height - mapHeight) / 2 + dims.height * 0.005;
+
+  return ([lon, lat]) => [
+    left + (Number(lon) - CHINA_BOUNDS.minLon) * scale,
+    top + (CHINA_BOUNDS.maxLat - Number(lat)) * scale,
+  ];
+}
+
+function ringToPath(ring, project) {
+  if (!ring?.length) return '';
+  return ring.map((point, index) => {
+    const [x, y] = project(point);
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(' ') + ' Z';
+}
+
+function geometryToPath(geometry, project) {
+  if (!geometry) return '';
+  if (geometry.type === 'Polygon') return geometry.coordinates.map((ring) => ringToPath(ring, project)).join(' ');
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates.flatMap((polygon) => polygon.map((ring) => ringToPath(ring, project))).join(' ');
+  return '';
+}
+
+const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onTeaSelect }, ref) {
   const containerRef = useRef(null);
-  const { season } = useSeason();
-  const [tooltip, setTooltip] = useState(null);
-  const [dims, setDims] = useState({ w: 800, h: 600 });
+  const svgRef = useRef(null);
   const zoomRef = useRef(null);
-  const gRef = useRef(null);
+  const { season } = useSeason();
+  const [geoData, setGeoData] = useState(null);
+  const [neighborsData, setNeighborsData] = useState(null);
+  const [dims, setDims] = useState({ width: 1200, height: 820 });
+  const [transform, setTransform] = useState(d3.zoomIdentity);
+  const [hoveredRegion, setHoveredRegion] = useState(null);
+  const hoverTimer = useRef(null);
+  const leaveTimer = useRef(null);
 
-  // 响应式尺寸（useLayoutEffect 确保首次渲染前获取正确尺寸）
-  useLayoutEffect(() => {
-    const updateDims = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          setDims({ w: rect.width, h: rect.height });
-        }
-      }
-    };
-    updateDims();
-    window.addEventListener('resize', updateDims);
-    return () => window.removeEventListener('resize', updateDims);
+  useEffect(() => {
+    loadGeo().then(setGeoData).catch(() => setGeoData(null));
   }, []);
 
-  // 主渲染
   useEffect(() => {
-    if (!svgRef.current || teas.length === 0) return;
-    loadGeo().then(geoData => {
-      renderMap(geoData);
-    });
-  }, [teas, dims, season]);
+    loadNeighbors().then(setNeighborsData).catch(() => setNeighborsData(null));
+  }, []);
 
-  function renderMap(geoData) {
-    const { w, h } = dims;
-    const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
+  useLayoutEffect(() => {
+    if (!containerRef.current) return undefined;
+    const resize = () => {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDims({ width: Math.max(rect.width, 760), height: Math.max(rect.height, 560) });
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
-    // 投影
-    const projection = d3.geoMercator()
-      .center([104.5, 36])
-      .scale(Math.max(w, h) * 0.65)
-      .translate([w / 2, h / 2]);
+  const displayGeo = useMemo(() => {
+    if (!geoData) return null;
+    return geoData.features.filter((feature) => feature.properties?.name);
+  }, [geoData]);
 
-    const pathGen = d3.geoPath(projection);
+  const project = useMemo(() => makePlanarProjector(dims), [dims]);
 
-    // 主容器
-    const g = svg.append('g');
-    gRef.current = g;
+  const atlasRect = useMemo(() => {
+    if (!project) return null;
+    const [x1, y1] = project([ATLAS_BOUNDS.minLon, ATLAS_BOUNDS.maxLat]);
+    const [x2, y2] = project([ATLAS_BOUNDS.maxLon, ATLAS_BOUNDS.minLat]);
+    return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+  }, [project]);
 
-    // 缩放行为
-    const zoom = d3.zoom()
-      .scaleExtent([0.7, 5])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
-    svg.call(zoom);
-    zoomRef.current = zoom;
+  const paths = useMemo(() => {
+    return displayGeo?.map((feature) => ({
+      id: feature.properties?.adcode || feature.properties?.name,
+      name: feature.properties?.name,
+      d: geometryToPath(feature.geometry, project),
+      atmosphereProfile: getRegionAtmosphereProfile({
+        longitude: feature.properties?.centroid?.[0] ?? feature.properties?.center?.[0],
+        latitude: feature.properties?.centroid?.[1] ?? feature.properties?.center?.[1],
+      }),
+    })) || [];
+  }, [displayGeo, project]);
 
-    // ── SVG背景 ──
-    svg.append('rect')
-      .attr('width', '100%').attr('height', '100%')
-      .attr('fill', '#f0ebe0');
+  const teaSignals = useMemo(() => {
+    return teas.map((tea) => {
+      const [x, y] = project([tea.longitude, tea.latitude]);
+      const atmosphereProfile = getRegionAtmosphereProfile(tea);
+      const regionFeature = paths.find((feature) => normalizeRegionName(feature.name) === normalizeRegionName(tea.province));
+      return {
+        ...tea,
+        x,
+        y,
+        atmosphereProfile,
+        regionFeature,
+        inHoveredRegion: hoveredRegion ? normalizeRegionName(tea.province) === normalizeRegionName(hoveredRegion.name) : false,
+      };
+    }).filter((tea) => Number.isFinite(tea.x) && Number.isFinite(tea.y));
+  }, [hoveredRegion, paths, project, teas]);
 
-    // ── 调试：如果地图不渲染，至少能看到这个圆圈 ──
-    g.append('circle')
-      .attr('cx', w/2).attr('cy', h/2)
-      .attr('r', 30)
-      .attr('fill', '#c75b5b')
-      .attr('opacity', 0.5);
+  const teaSignalState = useMemo(() => {
+    if (transform.k >= 2.65) return 'close';
+    if (transform.k >= 1.45) return 'mid';
+    return 'far';
+  }, [transform.k]);
 
-    // ── 省份层 ──
-    g.append('g').attr('class', 'provinces')
-      .selectAll('path')
-      .data(geoData.features)
-      .join('path')
-      .attr('d', pathGen)
-      .attr('fill', '#faf7f2')
-      .attr('stroke', 'rgba(170,150,120,0.45)')
-      .attr('stroke-width', 0.8)
-      .attr('vector-effect', 'non-scaling-stroke');
+  const neighborPaths = useMemo(() => {
+    if (!neighborsData) return [];
+    return neighborsData.features.map((feature) => {
+      const d = geometryToPath(feature.geometry, project);
+      if (!d) return null;
+      return {
+        id: feature.properties?.NAME || feature.properties?.name || feature.properties?.ADMIN,
+        d,
+      };
+    }).filter(Boolean);
+  }, [neighborsData, project]);
 
-    // ── 茶叶点位 ──
-    const markers = buildMarkers(teas, season, projection);
-    const markerG = g.append('g').attr('class', 'markers');
-
-    markers.forEach(m => {
-      const group = markerG.append('g')
-        .attr('transform', `translate(${m.x},${m.y})`)
-        .attr('class', 'tea-marker')
-        .style('cursor', 'pointer')
-        .style('transition', 'opacity 0.6s');
-
-      if (m.isMountain) {
-        // 山脉标记
-        group.append('path')
-          .attr('d', MOUNTAIN_ICON)
-          .attr('fill', 'rgba(140,155,170,0.5)')
-          .attr('stroke', 'rgba(140,155,170,0.6)')
-          .attr('stroke-width', 0.5);
-      } else {
-        // 茶叶标记 — 外晕
-        group.append('circle')
-          .attr('r', m.inSeason ? 16 : 10)
-          .attr('fill', m.inSeason ? 'rgba(199,91,91,0.15)' : 'rgba(139,168,136,0.12)')
-          .attr('class', 'glow');
-        // 主体
-        group.append('circle')
-          .attr('r', m.size)
-          .attr('fill', m.color)
-          .attr('opacity', m.opacity)
-          .attr('stroke', '#fff')
-          .attr('stroke-width', 1.5)
-          .style('transition', 'all 0.6s');
-      }
-
-      // 交互事件
-      group
-        .on('mouseenter', (event) => {
-          setTooltip({ x: m.x, y: m.y - 18, name: m.name, city: m.city, province: m.province });
-          d3.select(event.currentTarget).select('circle').transition().duration(150).attr('r', m.size * 1.5);
-        })
-        .on('mouseleave', (event) => {
-          setTooltip(null);
-          d3.select(event.currentTarget).select('circle').transition().duration(150).attr('r', m.size);
-        })
-        .on('click', () => {
-          if (!m.isMountain) onTeaSelect(m);
-        });
-    });
-
-    // 初始居中
-    svg.call(zoom.transform, d3.zoomIdentity);
-  }
-
-  // 季节切换时更新标记样式
   useEffect(() => {
-    if (!gRef.current || teas.length === 0) return;
-    const g = gRef.current;
-    g.selectAll('.tea-marker').each(function () {
-      const el = d3.select(this);
-      const isSeason = el.attr('data-inseason') === 'true';
-      // 颜色渐变过渡
-    });
+    EffectController.dispatch({ type: 'season:preset', payload: { season } });
   }, [season]);
 
-  // 缩放控制
-  const zoomIn = useCallback(() => {
-    if (!svgRef.current || !zoomRef.current) return;
-    d3.select(svgRef.current).transition().duration(300)
-      .call(zoomRef.current.scaleBy, 1.3);
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      if (leaveTimer.current) clearTimeout(leaveTimer.current);
+      EffectController.dispatch({ type: 'region:hover:end' });
+    };
   }, []);
 
-  const zoomOut = useCallback(() => {
-    if (!svgRef.current || !zoomRef.current) return;
-    d3.select(svgRef.current).transition().duration(300)
-      .call(zoomRef.current.scaleBy, 0.7);
-  }, []);
+  useEffect(() => {
+    if (!svgRef.current) return undefined;
+    const svg = d3.select(svgRef.current);
+    if (!isInteractive) {
+      svg.on('.zoom', null);
+      zoomRef.current = null;
+      return undefined;
+    }
+    const zoom = d3.zoom().scaleExtent([0.82, 5.2]).on('zoom', (event) => setTransform(event.transform));
+    svg.call(zoom);
+    zoomRef.current = zoom;
+    return () => svg.on('.zoom', null);
+  }, [isInteractive]);
 
-  const zoomReset = useCallback(() => {
-    if (!svgRef.current || !zoomRef.current || !dims.w) return;
-    d3.select(svgRef.current).transition().duration(500)
-      .call(zoomRef.current.transform, d3.zoomIdentity.translate(dims.w * 0.12, dims.h * 0.05).scale(0.95));
-  }, [dims]);
+  const applyZoom = useCallback((fn) => {
+    if (!isInteractive || !svgRef.current || !zoomRef.current) return;
+    d3.select(svgRef.current).transition().duration(1120).ease(d3.easeCubicInOut).call(fn);
+  }, [isInteractive]);
+
+  const handleRegionHover = useCallback((feature) => {
+    if (!isInteractive) return;
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => {
+      setHoveredRegion({ id: feature.id, name: feature.name });
+      EffectController.dispatch({
+        type: 'region:hover',
+        payload: {
+          region: {
+            id: feature.id,
+            name: feature.name,
+            path: feature.d,
+            atmosphereProfile: feature.atmosphereProfile,
+          },
+        },
+      });
+      hoverTimer.current = null;
+    }, 120);
+  }, [isInteractive]);
+
+  const handleRegionLeave = useCallback(() => {
+    if (!isInteractive) return;
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    leaveTimer.current = setTimeout(() => {
+      setHoveredRegion(null);
+      EffectController.dispatch({ type: 'region:hover:end' });
+      leaveTimer.current = null;
+    }, 80);
+  }, [isInteractive]);
+
+  const handleTeaClick = useCallback((tea) => {
+    if (!isInteractive) return;
+    onTeaSelect?.(tea);
+  }, [isInteractive, onTeaSelect]);
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => applyZoom((selection) => zoomRef.current.scaleBy(selection, 1.26)),
+    zoomOut: () => applyZoom((selection) => zoomRef.current.scaleBy(selection, 0.8)),
+    reset: () => applyZoom((selection) => zoomRef.current.transform(selection, d3.zoomIdentity)),
+  }), [applyZoom]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={{ background: 'transparent' }}>
-      <svg ref={svgRef} width="100%" height="100%" className="block" />
+    <div ref={containerRef} className="ink-map-stage relative h-full w-full overflow-hidden" data-intro-state="active">
+      <svg ref={svgRef} width="100%" height="100%" className="absolute inset-0 z-[2] block map-interaction-layer" data-interactive={isInteractive ? 'true' : 'false'}>
+        <defs>
+          <filter id="paperRelief">
+            <feDropShadow dx="0" dy="1" stdDeviation="0.3" floodColor="#fff" floodOpacity="0.9" />
+            <feDropShadow dx="0" dy="8" stdDeviation="10" floodColor="#8f7356" floodOpacity="0.08" />
+          </filter>
+          <filter id="mountainBlur">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+          <filter id="inkWashHeavy" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="6.5" />
+          </filter>
+          <filter id="inkWashMid" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3.5" />
+          </filter>
+          <filter id="inkWashLight" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="1.8" />
+          </filter>
+          <linearGradient id="provinceWash" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,252,246,.46)" />
+            <stop offset="58%" stopColor="rgba(220,196,176,.24)" />
+            <stop offset="100%" stopColor="rgba(176,143,124,.18)" />
+          </linearGradient>
+          <radialGradient id="mapAura" cx="50%" cy="48%" r="54%">
+            <stop offset="0%" stopColor="rgba(255,255,255,.28)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#mapAura)" />
+        <g transform={transform.toString()} className="china-relief">
+          <MountainLayerImage href={mountainLayer1} atlasRect={atlasRect} depth={1} />
+          <g className="neighbors-layer" aria-hidden="true">
+            {neighborPaths.map((neighbor) => (
+              <path
+                key={neighbor.id}
+                d={neighbor.d}
+                fill="rgba(190, 183, 175, 0.12)"
+                stroke="rgba(210, 200, 185, 0.28)"
+                strokeWidth={0.5 / Math.sqrt(transform.k)}
+                vectorEffect="non-scaling-stroke"
+                filter="url(#inkWashMid)"
+              />
+            ))}
+          </g>
+          <MountainLayerImage href={mountainLayer2} atlasRect={atlasRect} depth={2} />
+          <MountainLayerImage href={mountainLayer3} atlasRect={atlasRect} depth={3} />
+          <g className="province-ink-layer" filter="url(#paperRelief)">
+            {paths.map((feature) => {
+              const isHoveredRegion = hoveredRegion?.id === feature.id;
+              const centerX = dims.width * 0.48;
+              const centerY = dims.height * 0.54;
+              const pathMatch = feature.d.match(/M([\d.]+)\s+([\d.]+)/);
+              const px = pathMatch ? parseFloat(pathMatch[1]) : centerX;
+              const py = pathMatch ? parseFloat(pathMatch[2]) : centerY;
+              const dist = Math.sqrt((px - centerX) ** 2 + (py - centerY) ** 2);
+              const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
+              const delay = (dist / maxDist) * 1.8;
 
-      {/* 悬浮气泡 */}
-      {tooltip && (
-        <div className="absolute pointer-events-none card-glass rounded-xl px-3 py-1.5 text-xs z-20 fade-in"
-          style={{
-            left: tooltip.x + 14, top: tooltip.y - 8,
-            color: 'var(--ink-dark)',
-            borderRadius: '10px',
-            fontSize: '12px',
-            padding: '4px 12px',
-          }}>
-          <span className="font-medium">{tooltip.name}</span>
-          <span className="text-ink-light ml-1">{tooltip.province}·{tooltip.city}</span>
-        </div>
-      )}
-
-      {/* 四个角的缩放按钮（通过props暴露给父组件） */}
-      <ZoomControls onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={zoomReset} />
+              return (
+                <path
+                  key={feature.id}
+                  className={`province-path${isHoveredRegion ? ' province-active' : ''}${hoveredRegion && !isHoveredRegion ? ' province-dimmed' : ''}`}
+                  data-atmosphere-profile={feature.atmosphereProfile.id}
+                  d={feature.d}
+                  fill={scaleRgbaAlpha(feature.atmosphereProfile.wash)}
+                  stroke={feature.atmosphereProfile.stroke}
+                  strokeWidth={0.72 / Math.sqrt(transform.k)}
+                  vectorEffect="non-scaling-stroke"
+                  style={{ animationDelay: `${delay}s` }}
+                  onPointerEnter={() => handleRegionHover(feature)}
+                  onPointerLeave={handleRegionLeave}
+                />
+              );
+            })}
+          </g>
+          <MountainLayerImage href={riverTrackMountainsLayer} atlasRect={atlasRect} depth="flow-mountains" />
+          <MountainLayerImage href={mountainLayer4} atlasRect={atlasRect} depth={4} />
+          <g className="tea-signal-layer" data-signal-state={teaSignalState}>
+            {teaSignals.map((tea) => (
+              <g
+                key={tea.id}
+                className={`tea-signal ${tea.inHoveredRegion ? 'region-visible' : ''}`}
+                data-atmosphere-profile={tea.atmosphereProfile.id}
+                data-signal-state={teaSignalState}
+                transform={`translate(${tea.x.toFixed(2)} ${tea.y.toFixed(2)})`}
+                style={{
+                  '--tea-dot-fill': tea.atmosphereProfile.dot,
+                  '--tea-bloom-fill': tea.atmosphereProfile.wash,
+                  '--tea-opacity-far': (0.3 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                  '--tea-opacity-mid': (0.62 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                  '--tea-opacity-close': Math.min(0.92, 0.86 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                  '--tea-opacity-region': Math.min(0.93, 0.88 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                  '--tea-bloom-mid-opacity': (0.22 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                  '--tea-bloom-close-opacity': (0.34 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                  '--tea-bloom-region-opacity': (0.32 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                  '--tea-motion-duration': `${Math.round(1180 * tea.atmosphereProfile.motionScale)}ms`,
+                  animationDelay: `${1.5 + Math.sqrt((tea.x - dims.width * 0.48) ** 2 + (tea.y - dims.height * 0.54) ** 2) / Math.sqrt((dims.width * 0.48) ** 2 + (dims.height * 0.54) ** 2) * 1.4}s`,
+                }}
+                onClick={() => handleTeaClick(tea)}
+                onPointerEnter={() => tea.regionFeature && handleRegionHover(tea.regionFeature)}
+                onPointerLeave={handleRegionLeave}
+              >
+                <circle className="tea-signal-hit" r={14} fill="transparent" style={{ pointerEvents: 'auto' }} />
+                <circle className="tea-signal-bloom" r="12" vectorEffect="non-scaling-stroke" />
+                <image
+                  href={`/images/tea-icons/${tea.categoryEn}.png`}
+                  x={-12}
+                  y={-12}
+                  width={24}
+                  height={24}
+                  className="tea-icon-bloom"
+                />
+                <circle className="tea-signal-dot" r="3.2" vectorEffect="non-scaling-stroke" />
+                <g className="tea-signal-label">
+                  <text className="tea-signal-name" x="8" y="-5">{tea.name}</text>
+                  <text className="tea-signal-hint" x="8" y="9">{tea.province} / {tea.category}</text>
+                </g>
+              </g>
+            ))}
+          </g>
+        </g>
+      </svg>
+      <MapEffectLayer transform={transform.toString()} introState="active" />
     </div>
   );
-}
+});
 
-// ── 地图角落缩放按钮 ──
-function ZoomControls({ onZoomIn, onZoomOut, onReset }) {
-  return (
-    <div className="absolute bottom-4 left-4 flex flex-col gap-1.5 z-20">
-      <button onClick={onZoomIn} className="btn-icon text-lg" title="放大">+</button>
-      <button onClick={onZoomOut} className="btn-icon text-lg" title="缩小">−</button>
-      <button onClick={onReset} className="btn-icon text-sm" title="重置">⟳</button>
-    </div>
-  );
-}
+TeaMap.displayName = 'TeaMap';
+
+export default TeaMap;

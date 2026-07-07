@@ -1,84 +1,53 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSeason } from '../contexts/SeasonContext';
-import { useAuth } from '../contexts/AuthContext';
-import { teaAPI } from '../services/api';
+﻿import { useRef, useState } from 'react';
+
 import TeaMap from '../components/Map/TeaMap';
-import TeaDetailCard from '../components/Map/TeaDetailCard';
-import BottomControlBar from '../components/Controls/BottomControlBar';
-import TeaCatalogPopup from '../components/Controls/TeaCatalogPopup';
+import BottomControlBar from '../components/Navigation/BottomControlBar';
+import TeaDetailPanel from '../components/Tea/TeaDetailPanel';
+import TeaCatalogPopup from '../components/Tea/TeaCatalogPopup';
 import CloudAnimation from '../components/Effects/CloudAnimation';
-import Snowfall from '../components/Effects/Snowfall';
+
+import { demoTeas } from '../data/demoTeas';
 
 export default function MapPage() {
-  const { season } = useSeason();
-  const { user } = useAuth();
-
-  const [teas, setTeas] = useState([]);
-  const [stats, setStats] = useState({ teaCities: 0, totalTeas: 0 });
-  const [selectedTea, setSelectedTea] = useState(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
-
+  const [selectedTea, setSelectedTea] = useState(null);
   const mapRef = useRef(null);
 
-  useEffect(() => {
-    teaAPI.getAll().then(r => setTeas(r.data.teas)).catch(() => {});
-    teaAPI.getStats().then(r => setStats(r.data)).catch(() => {});
-  }, []);
-
-  const handleTeaSelect = useCallback((tea) => setSelectedTea(tea), []);
-
-  const seasonTeas = teas.filter(t => t.seasons?.includes(season) && !t.is_mountain);
-
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col relative paper-bg"
-      style={{ transition: `background-color var(--season-transition)` }}>
-
-      {/* 雾流动效 */}
+    <div className="ink-scene">
       <CloudAnimation />
 
-      {/* 顶部统计悬浮条 */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex justify-center pt-2 pb-1 pointer-events-none"
-        style={{ background: 'linear-gradient(180deg, rgba(250,246,240,0.9) 0%, transparent 100%)' }}>
-        <p className="text-xs text-ink-light tracking-wide">
-          共<span className="text-ink-dark font-medium mx-0.5">{stats.teaCities}</span>产区 · <span className="text-ink-dark font-medium">{stats.totalTeas}</span>款茶品
-          {seasonTeas.length > 0 && <span className="ml-1">· 🌸 当季 <span className="text-seal-red font-medium">{seasonTeas.length}</span> 种</span>}
-        </p>
-      </div>
+      <main className="map-layer">
+        <TeaMap
+          ref={mapRef}
+          teas={demoTeas}
+          onTeaSelect={(tea) => {
+            setSelectedTea(tea);
+          }}
+        />
+      </main>
 
-      {/* 地图区域 */}
-      <div ref={mapRef} className="flex-1 relative">
-        {teas.length > 0 ? (
-          <TeaMap teas={teas} onTeaSelect={handleTeaSelect} />
-        ) : (
-          <div className="flex items-center justify-center h-full text-ink-light text-sm">加载中...</div>
-        )}
-      </div>
+      <BottomControlBar
+        onZoomIn={() => mapRef.current?.zoomIn()}
+        onZoomOut={() => mapRef.current?.zoomOut()}
+        onReset={() => mapRef.current?.reset()}
+        onCatalogOpen={() => setCatalogOpen(true)}
+      />
 
-      {/* 详情弹窗 */}
-      {selectedTea && (
-        <TeaDetailCard tea={selectedTea} onClose={() => setSelectedTea(null)} />
+      {selectedTea !== null && (
+        <TeaDetailPanel tea={selectedTea} onClose={() => setSelectedTea(null)} />
       )}
 
-      {/* 雪花特效（仅冬季） */}
-      <Snowfall />
-
-      {/* 底部控制栏 */}
-      <div className="relative z-30">
-        <BottomControlBar
-          onZoomIn={() => {}}
-          onZoomOut={() => {}}
-          onReset={() => {}}
-          onCatalogOpen={() => setCatalogOpen(true)}
-        />
-      </div>
-
-      {/* 茶信录弹窗 */}
       <TeaCatalogPopup
-        teas={teas}
+        teas={demoTeas}
         isOpen={catalogOpen}
         onClose={() => setCatalogOpen(false)}
-        onTeaSelect={handleTeaSelect}
+        onTeaSelect={(tea) => {
+          setSelectedTea(tea);
+        }}
       />
     </div>
   );
 }
+
+

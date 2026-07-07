@@ -1,31 +1,14 @@
-import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Layout/Navbar';
-import HomePage from './pages/HomePage';
+﻿import { Navigate, Route, Routes } from 'react-router-dom';
 import MapPage from './pages/MapPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ProfilePage from './pages/ProfilePage';
-import AdminLayout from './pages/Admin/AdminLayout';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AdminTeas from './pages/Admin/AdminTeas';
-import AdminUsers from './pages/Admin/AdminUsers';
 
 export default function App() {
   return (
-    <div className="h-screen paper-bg overflow-hidden">
-      <Navbar />
-      <main className="h-[calc(100vh-3.5rem)] pt-14">
+    <div className="h-screen overflow-hidden ink-app">
+      <main className="h-full">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<MapPage />} />
           <Route path="/map" element={<MapPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="teas" element={<AdminTeas />} />
-            <Route path="users" element={<AdminUsers />} />
-          </Route>
+          <Route path="*" element={<Navigate to="/map" replace />} />
         </Routes>
       </main>
     </div>

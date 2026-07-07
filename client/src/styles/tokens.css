@@ -1,0 +1,98 @@
+/**
+ * Ink palette
+ */
+:root {
+  --ink: #463f39;
+  --ink-soft: #7d7167;
+  --ink-faint: #a99e94;
+
+  /**
+   * Paper / surface
+   */
+  --paper: #f3e8dd;
+  --paper-deep: #eadbd1;
+  --gold-line: rgba(156, 123, 82, 0.58);
+  --panel: rgba(255, 249, 241, 0.66);
+  --panel-strong: rgba(255, 250, 244, 0.82);
+  --shadow: 0 24px 80px rgba(93, 70, 49, 0.14);
+
+  /**
+   * Accent
+   */
+  --accent: #8fae8c;
+
+  /**
+   * Bloom colors
+   */
+  --bloom-a: #d99ca1;
+  --bloom-b: #efd09b;
+  --bloom-c: #91ae88;
+
+  /**
+   * Paper wash
+   */
+  --wash-a: rgba(140, 151, 137, 0.28);
+  --wash-b: rgba(190, 140, 129, 0.23);
+  --wash-c: rgba(134, 123, 164, 0.18);
+
+  /**
+   * Animation rhythm
+   */
+  --ink-t0: 0ms;
+  --ink-t1: 180ms;
+  --ink-t2: 360ms;
+  --ink-t3: 540ms;
+  --ink-ease: cubic-bezier(0.25, 0.1, 0.1, 1);
+  --ink-rhythm-quiet: 920ms;
+  --ink-rhythm: 1240ms;
+  --ink-rhythm-slow: 1760ms;
+  --transition: var(--ink-rhythm) var(--ink-ease);
+}
+
+[data-season="spring"] {
+  --paper: #f1e9dd;
+  --paper-deep: #e5dccf;
+  --accent: #8fae8c;
+  --bloom-a: #d799aa;
+  --bloom-b: #f2d7a5;
+  --bloom-c: #86af87;
+  --wash-a: rgba(116, 145, 126, 0.27);
+  --wash-b: rgba(195, 145, 140, 0.22);
+  --wash-c: rgba(141, 130, 174, 0.16);
+}
+
+[data-season="summer"] {
+  --paper: #f5e7d4;
+  --paper-deep: #ead6bd;
+  --accent: #b79d66;
+  --bloom-a: #df8c79;
+  --bloom-b: #f3c971;
+  --bloom-c: #7ca969;
+  --wash-a: rgba(158, 149, 105, 0.27);
+  --wash-b: rgba(208, 147, 91, 0.2);
+  --wash-c: rgba(136, 123, 161, 0.14);
+}
+
+[data-season="autumn"] {
+  --paper: #f0ddcc;
+  --paper-deep: #e3c7b0;
+  --accent: #c08358;
+  --bloom-a: #c86e58;
+  --bloom-b: #e3ad54;
+  --bloom-c: #899b68;
+  --wash-a: rgba(133, 123, 101, 0.28);
+  --wash-b: rgba(202, 118, 73, 0.24);
+  --wash-c: rgba(144, 111, 133, 0.15);
+}
+
+[data-season="winter"] {
+  --paper: #edf0f1;
+  --paper-deep: #dce3e6;
+  --accent: #8799a8;
+  --bloom-a: #aeb8ca;
+  --bloom-b: #d9dde4;
+  --bloom-c: #88a0a8;
+  --wash-a: rgba(93, 111, 126, 0.24);
+  --wash-b: rgba(163, 174, 184, 0.22);
+  --wash-c: rgba(125, 130, 156, 0.12);
+}

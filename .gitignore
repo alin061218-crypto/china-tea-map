@@ -3,3 +3,13 @@ tea-map.db
 .env
 client/dist/
 reference/
+dist/
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+client/tmp/
+.tmp/
+.codex-context.md
+__pycache__/
+*.pyc

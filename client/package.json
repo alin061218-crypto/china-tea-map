@@ -1,22 +1,25 @@
 {
-  "name": "tea-map-client",
+  "name": "tea-atlas",
   "version": "1.0.0",
   "type": "module",
+  "description": "Interactive Chinese Tea Culture Digital Museum",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
     "axios": "^1.7.7",
     "d3": "^7.9.0",
     "d3-geo": "^3.1.1",
-    "echarts": "^5.5.1",
     "framer-motion": "^11.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
