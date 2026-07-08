@@ -1,12 +1,11 @@
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tea-map-secret-key-2024-graduation';
+const { jwtSecret, jwtExpiresIn } = require('../config');
 
 function generateToken(user) {
   return jwt.sign(
     { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+    jwtSecret,
+    { expiresIn: jwtExpiresIn }
   );
 }
 
@@ -18,7 +17,7 @@ function authMiddleware(req, res, next) {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded;
     next();
   } catch (err) {
@@ -33,4 +32,4 @@ function adminMiddleware(req, res, next) {
   next();
 }
 
-module.exports = { generateToken, authMiddleware, adminMiddleware, JWT_SECRET };
+module.exports = { generateToken, authMiddleware, adminMiddleware, JWT_SECRET: jwtSecret };

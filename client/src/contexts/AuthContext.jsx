@@ -18,18 +18,18 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (username, password) => {
-    const { data } = await authAPI.login({ username, password });
-    localStorage.setItem('token', data.token);
-    const userData = { id: data.user.id, username: data.user.username, email: data.user.email, role: data.user.role };
+    const { data: authData } = await authAPI.login({ username, password });
+    localStorage.setItem('token', authData.token);
+    const userData = { id: authData.user.id, username: authData.user.username, email: authData.user.email, role: authData.user.role };
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   }, []);
 
   const register = useCallback(async (username, email, password) => {
-    const { data } = await authAPI.register({ username, email, password });
-    localStorage.setItem('token', data.token);
-    const userData = { id: data.user.id, username: data.user.username, email: data.user.email, role: data.user.role };
+    const { data: authData } = await authAPI.register({ username, email, password });
+    localStorage.setItem('token', authData.token);
+    const userData = { id: authData.user.id, username: authData.user.username, email: authData.user.email, role: authData.user.role };
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     return userData;

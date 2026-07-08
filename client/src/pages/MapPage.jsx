@@ -5,11 +5,13 @@ import BottomControlBar from '../components/Navigation/BottomControlBar';
 import TeaDetailPanel from '../components/Tea/TeaDetailPanel';
 import TeaCatalogPopup from '../components/Tea/TeaCatalogPopup';
 import CloudAnimation from '../components/Effects/CloudAnimation';
+import AuthModal from '../components/Auth/AuthModal';
 
 import { demoTeas } from '../data/demoTeas';
 
 export default function MapPage() {
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [selectedTea, setSelectedTea] = useState(null);
   const mapRef = useRef(null);
 
@@ -32,6 +34,7 @@ export default function MapPage() {
         onZoomOut={() => mapRef.current?.zoomOut()}
         onReset={() => mapRef.current?.reset()}
         onCatalogOpen={() => setCatalogOpen(true)}
+        onAuthOpen={() => setAuthModalOpen(true)}
       />
 
       {selectedTea !== null && (
@@ -45,6 +48,11 @@ export default function MapPage() {
         onTeaSelect={(tea) => {
           setSelectedTea(tea);
         }}
+      />
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
       />
     </div>
   );

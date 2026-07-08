@@ -1,5 +1,7 @@
-﻿import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import AdminGuard from './components/Admin/AdminGuard';
 import MapPage from './pages/MapPage';
+import AdminPage from './pages/AdminPage';
 
 export default function App() {
   return (
@@ -8,6 +10,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/map" element={<MapPage />} />
+          <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
           <Route path="*" element={<Navigate to="/map" replace />} />
         </Routes>
       </main>

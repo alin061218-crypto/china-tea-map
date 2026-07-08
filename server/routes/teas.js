@@ -1,5 +1,8 @@
 const express = require('express');
+const { param } = require('express-validator');
 const { getDb } = require('../db/database');
+const { validate } = require('../middleware/validate');
+const { success, fail } = require('../utils/response');
 
 const router = express.Router();
 
@@ -7,7 +10,7 @@ const router = express.Router();
 router.get('/', (req, res) => {
   const db = getDb();
   const teas = db.prepare('SELECT * FROM teas ORDER BY province, city').all();
-  res.json({ teas, total: teas.length });
+  res.json(success({ teas, total: teas.length }));
 });
 
 // GET /api/teas/stats/cities - 获取统计数据
@@ -15,33 +18,39 @@ router.get('/stats/cities', (req, res) => {
   const db = getDb();
   const cities = db.prepare('SELECT COUNT(DISTINCT city) as count FROM teas WHERE is_mountain = 0').get();
   const total = db.prepare('SELECT COUNT(*) as count FROM teas WHERE is_mountain = 0').get();
-  res.json({ teaCities: cities.count, totalTeas: total.count });
+  res.json(success({ teaCities: cities.count, totalTeas: total.count }));
 });
 
 // GET /api/teas/season/:season - 按季节获取茶品
-router.get('/season/:season', (req, res) => {
+router.get('/season/:season', validate([
+  param('season').isIn(['春', '夏', '秋', '冬', 'spring', 'summer', 'autumn', 'winter']).withMessage('无效的季节'),
+]), (req, res) => {
   const db = getDb();
   const { season } = req.params;
   const teas = db.prepare('SELECT * FROM teas WHERE seasons LIKE ? ORDER BY province').all(`%${season}%`);
-  res.json({ teas, total: teas.length });
+  res.json(success({ teas, total: teas.length }));
 });
 
 // GET /api/teas/month/:month - 按月份获取茶品
-router.get('/month/:month', (req, res) => {
+router.get('/month/:month', validate([
+  param('month').isInt({ min: 1, max: 12 }).withMessage('月份必须是 1-12 的整数'),
+]), (req, res) => {
   const db = getDb();
   const { month } = req.params;
   const teas = db.prepare('SELECT * FROM teas WHERE maturity_months LIKE ? ORDER BY province').all(`%${month}%`);
-  res.json({ teas, total: teas.length });
+  res.json(success({ teas, total: teas.length }));
 });
 
 // GET /api/teas/:id - 获取单个茶品详情
-router.get('/:id', (req, res) => {
+router.get('/:id', validate([
+  param('id').isInt().withMessage('ID 必须为整数'),
+]), (req, res) => {
   const db = getDb();
   const tea = db.prepare('SELECT * FROM teas WHERE id = ?').get(req.params.id);
   if (!tea) {
-    return res.status(404).json({ error: '未找到该茶品信息' });
+    return res.status(404).json(fail('未找到该茶品信息'));
   }
-  res.json({ tea });
+  res.json(success({ tea }));
 });
 
 module.exports = router;

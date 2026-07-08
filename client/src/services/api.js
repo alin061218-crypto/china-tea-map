@@ -16,8 +16,16 @@ api.interceptors.request.use((config) => {
 
 // 响应拦截器 - 处理 401
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res.data && typeof res.data.code === 'number' && res.data.code === 0) {
+      res.data = res.data.data;
+    }
+    return res;
+  },
   (err) => {
+    if (err.response?.data?.message) {
+      err.message = err.response.data.message;
+    }
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
