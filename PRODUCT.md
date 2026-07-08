@@ -6,11 +6,15 @@ brand
 
 ## Users
 
-Visitors exploring a Chinese tea map as an immersive cultural visual experience. They are not doing dense GIS analysis; they are browsing tea regions, seasons, and individual tea records through a calm, ornamental full-screen map.
+Visitors exploring Chinese tea culture through an interactive ink-wash map. They browse tea-producing regions, discover famous tea varieties by clicking map markers, and view tea details — all within a single immersive full-screen map interface.
 
 ## Product Purpose
 
-The site presents Chinese tea regions through a full-screen ink-wash map with blooming floral signals. Success means the first screen feels close to the provided reference video and screenshots: soft paper, watercolor wash, floral bloom density, and lightweight interactive tea discovery.
+Tea Atlas presents Chinese tea regions through an interactive SVG map with ink-wash aesthetics. Province boundaries are rendered with watercolor washes, mountain terrain is built from layered raster PNGs, and tea varieties are plotted as blooming floral markers. Success means the map feels like an animated ink-and-watercolor print that invites exploration — poetic, tactile, and restrained.
+
+## Core Experience
+
+The entire product is a **single-page interactive map**. Users pan and zoom across China, hover provinces to see regional atmosphere effects, click tea markers to open detail panels, and browse the tea catalog through a bottom-sheet popup. Seasonal filtering shifts the map's color palette and bloom intensity. The experience prioritizes visual atmosphere and discovery over information density.
 
 ## Brand Personality
 
