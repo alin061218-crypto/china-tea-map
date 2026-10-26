@@ -2,15 +2,16 @@
 import * as d3 from 'd3';
 
 import { useSeason } from '../../contexts/SeasonContext';
+import { getProductMarkerIcon } from '../../utils/modernTea.js';
 
 import { EffectController } from '../../effects/EffectController';
 import { getRegionAtmosphereProfile, normalizeRegionName } from '../../effects/regionAtmosphereProfiles';
 
-import mountainLayer1 from '../../assets/generated/map-mountains-layer-1-farthest.png';
-import mountainLayer2 from '../../assets/generated/map-mountains-layer-2-mid-far.png';
-import mountainLayer3 from '../../assets/generated/map-mountains-layer-3-mid-near.png';
-import mountainLayer4 from '../../assets/generated/map-mountains-layer-4-near-gold.png';
-import riverTrackMountainsLayer from '../../assets/generated/map-river-track-mountains.png';
+import mountainLayer1 from '../../assets/generated/map-mountains-layer-1-farthest.webp';
+import mountainLayer2 from '../../assets/generated/map-mountains-layer-2-mid-far.webp';
+import mountainLayer3 from '../../assets/generated/map-mountains-layer-3-mid-near.webp';
+import mountainLayer4 from '../../assets/generated/map-mountains-layer-4-near-gold.webp';
+import riverTrackMountainsLayer from '../../assets/generated/map-river-track-mountains.webp';
 
 import MapEffectLayer from '../Effects/MapEffectLayer';
 
@@ -95,7 +96,7 @@ function geometryToPath(geometry, project) {
   return '';
 }
 
-const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onTeaSelect }, ref) {
+const TeaMap = forwardRef(function TeaMap({ teas = [], modernProducts = [], viewMode = 'traditional', isInteractive = true, onTeaSelect, onProductSelect }, ref) {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const zoomRef = useRef(null);
@@ -175,6 +176,35 @@ const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onT
     if (transform.k >= 1.45) return 'mid';
     return 'far';
   }, [transform.k]);
+
+  // 现代茶饮产品独立点（原料产地城市附近），同城重叠点做径向避让
+  const productSignals = useMemo(() => {
+    const projected = modernProducts.map((product) => {
+      const [x, y] = project([product.longitude, product.latitude]);
+      const atmosphereProfile = getRegionAtmosphereProfile(product);
+      return { ...product, x, y, atmosphereProfile };
+    }).filter((product) => Number.isFinite(product.x) && Number.isFinite(product.y));
+
+    // 避让：已放置点距离小于 22 时，按角度逐圈外推
+    const placed = [];
+    for (const point of projected) {
+      let offsetX = 0;
+      let offsetY = 0;
+      let tries = 0;
+      while (tries < 12) {
+        const conflict = placed.some(
+          (other) => Math.hypot(other.x + offsetX - point.x, other.y + offsetY - point.y) < 22,
+        );
+        if (!conflict) break;
+        const angle = (tries * Math.PI) / 6;
+        offsetX = Math.cos(angle) * 24;
+        offsetY = Math.sin(angle) * 24;
+        tries += 1;
+      }
+      placed.push({ ...point, x: point.x + offsetX, y: point.y + offsetY });
+    }
+    return placed;
+  }, [modernProducts, project]);
 
   const neighborPaths = useMemo(() => {
     if (!neighborsData) return [];
@@ -262,11 +292,33 @@ const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onT
     onTeaSelect?.(tea);
   }, [isInteractive, onTeaSelect]);
 
+  // 信号索引 ref：供 focusTea / focusProduct 定位（避免 useCallback 闭包陈旧）
+  const signalsRef = useRef({ teas: [], products: [] });
+  useEffect(() => {
+    signalsRef.current = { teas: teaSignals, products: productSignals };
+  }, [teaSignals, productSignals]);
+
+  const focusSignal = useCallback((signal) => {
+    if (!isInteractive || !svgRef.current || !zoomRef.current) return;
+    const k = 2.65;
+    const translateX = dims.width / 2 - signal.x * k;
+    const translateY = dims.height / 2 - signal.y * k;
+    applyZoom((selection) => zoomRef.current.transform(selection, d3.zoomIdentity.translate(translateX, translateY).scale(k)));
+  }, [applyZoom, dims, isInteractive]);
+
   useImperativeHandle(ref, () => ({
     zoomIn: () => applyZoom((selection) => zoomRef.current.scaleBy(selection, 1.26)),
     zoomOut: () => applyZoom((selection) => zoomRef.current.scaleBy(selection, 0.8)),
     reset: () => applyZoom((selection) => zoomRef.current.transform(selection, d3.zoomIdentity)),
-  }), [applyZoom]);
+    focusTea: (teaId) => {
+      const signal = signalsRef.current.teas.find((tea) => tea.id === teaId);
+      if (signal) focusSignal(signal);
+    },
+    focusProduct: (productId) => {
+      const signal = signalsRef.current.products.find((product) => product.id === productId);
+      if (signal) focusSignal(signal);
+    },
+  }), [applyZoom, focusSignal]);
 
   return (
     <div ref={containerRef} className="ink-map-stage relative h-full w-full overflow-hidden" data-intro-state="active">
@@ -288,6 +340,9 @@ const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onT
           <filter id="inkWashLight" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="1.8" />
           </filter>
+          <clipPath id="productMarkerClip">
+            <circle cx="0" cy="0" r="15" />
+          </clipPath>
           <linearGradient id="provinceWash" x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stopColor="rgba(255,252,246,.46)" />
             <stop offset="58%" stopColor="rgba(220,196,176,.24)" />
@@ -347,49 +402,92 @@ const TeaMap = forwardRef(function TeaMap({ teas = [], isInteractive = true, onT
           </g>
           <MountainLayerImage href={riverTrackMountainsLayer} atlasRect={atlasRect} depth="flow-mountains" />
           <MountainLayerImage href={mountainLayer4} atlasRect={atlasRect} depth={4} />
-          <g className="tea-signal-layer" data-signal-state={teaSignalState}>
-            {teaSignals.map((tea) => (
-              <g
-                key={tea.id}
-                className={`tea-signal ${tea.inHoveredRegion ? 'region-visible' : ''}`}
-                data-atmosphere-profile={tea.atmosphereProfile.id}
-                data-signal-state={teaSignalState}
-                transform={`translate(${tea.x.toFixed(2)} ${tea.y.toFixed(2)})`}
-                style={{
-                  '--tea-dot-fill': tea.atmosphereProfile.dot,
-                  '--tea-bloom-fill': tea.atmosphereProfile.wash,
-                  '--tea-opacity-far': (0.3 * tea.atmosphereProfile.teaDensity).toFixed(3),
-                  '--tea-opacity-mid': (0.62 * tea.atmosphereProfile.teaDensity).toFixed(3),
-                  '--tea-opacity-close': Math.min(0.92, 0.86 * tea.atmosphereProfile.teaDensity).toFixed(3),
-                  '--tea-opacity-region': Math.min(0.93, 0.88 * tea.atmosphereProfile.teaDensity).toFixed(3),
-                  '--tea-bloom-mid-opacity': (0.22 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
-                  '--tea-bloom-close-opacity': (0.34 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
-                  '--tea-bloom-region-opacity': (0.32 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
-                  '--tea-motion-duration': `${Math.round(1180 * tea.atmosphereProfile.motionScale)}ms`,
-                  animationDelay: `${1.5 + Math.sqrt((tea.x - dims.width * 0.48) ** 2 + (tea.y - dims.height * 0.54) ** 2) / Math.sqrt((dims.width * 0.48) ** 2 + (dims.height * 0.54) ** 2) * 1.4}s`,
-                }}
-                onClick={() => handleTeaClick(tea)}
-                onPointerEnter={() => tea.regionFeature && handleRegionHover(tea.regionFeature)}
-                onPointerLeave={handleRegionLeave}
-              >
-                <circle className="tea-signal-hit" r={14} fill="transparent" style={{ pointerEvents: 'auto' }} />
-                <circle className="tea-signal-bloom" r="12" vectorEffect="non-scaling-stroke" />
-                <image
-                  href={`/images/tea-icons/${tea.categoryEn}.png`}
-                  x={-12}
-                  y={-12}
-                  width={24}
-                  height={24}
-                  className="tea-icon-bloom"
-                />
-                <circle className="tea-signal-dot" r="3.2" vectorEffect="non-scaling-stroke" />
-                <g className="tea-signal-label">
-                  <text className="tea-signal-name" x="8" y="-5">{tea.name}</text>
-                  <text className="tea-signal-hint" x="8" y="9">{tea.province} / {tea.category}</text>
+          {viewMode === 'modern' ? (
+            <g className="tea-signal-layer product-signal-layer" data-signal-state={teaSignalState}>
+              {productSignals.map((product) => (
+                <g
+                  key={product.id}
+                  className="tea-signal product-signal"
+                  data-signal-state={teaSignalState}
+                  transform={`translate(${product.x.toFixed(2)} ${product.y.toFixed(2)})`}
+                  style={{
+                    '--tea-dot-fill': product.atmosphereProfile.dot,
+                    '--tea-bloom-fill': product.atmosphereProfile.wash,
+                    '--tea-opacity-far': (0.34 * product.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-opacity-mid': (0.66 * product.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-opacity-close': Math.min(0.94, 0.9 * product.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-bloom-mid-opacity': (0.24 * product.atmosphereProfile.bloomIntensity).toFixed(3),
+                    '--tea-bloom-close-opacity': (0.36 * product.atmosphereProfile.bloomIntensity).toFixed(3),
+                    '--tea-motion-duration': `${Math.round(1180 * product.atmosphereProfile.motionScale)}ms`,
+                    animationDelay: `${1.5 + Math.sqrt((product.x - dims.width * 0.48) ** 2 + (product.y - dims.height * 0.54) ** 2) / Math.sqrt((dims.width * 0.48) ** 2 + (dims.height * 0.54) ** 2) * 1.4}s`,
+                  }}
+                  onClick={() => onProductSelect?.(product)}
+                >
+                  <circle className="tea-signal-hit" r={14} fill="transparent" style={{ pointerEvents: 'auto' }} />
+                  <circle className="tea-signal-bloom" r="12" vectorEffect="non-scaling-stroke" />
+                  <image
+                    href={getProductMarkerIcon(product.type)}
+                    x={-15}
+                    y={-15}
+                    width={30}
+                    height={30}
+                    className="product-bottle-icon"
+                    clipPath="url(#productMarkerClip)"
+                    aria-hidden="true"
+                  />
+                  <circle className="tea-signal-dot" r="3.2" vectorEffect="non-scaling-stroke" />
+                  <g className="tea-signal-label">
+                    <text className="tea-signal-name" x="9" y="-5">{product.name}</text>
+                    <text className="tea-signal-hint" x="9" y="9">{product.brand} / {product.type}</text>
+                  </g>
                 </g>
-              </g>
-            ))}
-          </g>
+              ))}
+            </g>
+          ) : (
+            <g className="tea-signal-layer" data-signal-state={teaSignalState}>
+              {teaSignals.map((tea) => (
+                <g
+                  key={tea.id}
+                  className={`tea-signal ${tea.inHoveredRegion ? 'region-visible' : ''}`}
+                  data-atmosphere-profile={tea.atmosphereProfile.id}
+                  data-signal-state={teaSignalState}
+                  transform={`translate(${tea.x.toFixed(2)} ${tea.y.toFixed(2)})`}
+                  style={{
+                    '--tea-dot-fill': tea.atmosphereProfile.dot,
+                    '--tea-bloom-fill': tea.atmosphereProfile.wash,
+                    '--tea-opacity-far': (0.3 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-opacity-mid': (0.62 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-opacity-close': Math.min(0.92, 0.86 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-opacity-region': Math.min(0.93, 0.88 * tea.atmosphereProfile.teaDensity).toFixed(3),
+                    '--tea-bloom-mid-opacity': (0.22 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                    '--tea-bloom-close-opacity': (0.34 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                    '--tea-bloom-region-opacity': (0.32 * tea.atmosphereProfile.bloomIntensity).toFixed(3),
+                    '--tea-motion-duration': `${Math.round(1180 * tea.atmosphereProfile.motionScale)}ms`,
+                    animationDelay: `${1.5 + Math.sqrt((tea.x - dims.width * 0.48) ** 2 + (tea.y - dims.height * 0.54) ** 2) / Math.sqrt((dims.width * 0.48) ** 2 + (dims.height * 0.54) ** 2) * 1.4}s`,
+                  }}
+                  onClick={() => handleTeaClick(tea)}
+                  onPointerEnter={() => tea.regionFeature && handleRegionHover(tea.regionFeature)}
+                  onPointerLeave={handleRegionLeave}
+                >
+                  <circle className="tea-signal-hit" r={14} fill="transparent" style={{ pointerEvents: 'auto' }} />
+                  <circle className="tea-signal-bloom" r="12" vectorEffect="non-scaling-stroke" />
+                  <image
+                    href={`/images/tea-icons/${tea.categoryEn}.png`}
+                    x={-12}
+                    y={-12}
+                    width={24}
+                    height={24}
+                    className="tea-icon-bloom"
+                  />
+                  <circle className="tea-signal-dot" r="3.2" vectorEffect="non-scaling-stroke" />
+                  <g className="tea-signal-label">
+                    <text className="tea-signal-name" x="8" y="-5">{tea.name}</text>
+                    <text className="tea-signal-hint" x="8" y="9">{tea.province} / {tea.category}</text>
+                  </g>
+                </g>
+              ))}
+            </g>
+          )}
         </g>
       </svg>
       <MapEffectLayer transform={transform.toString()} introState="active" />

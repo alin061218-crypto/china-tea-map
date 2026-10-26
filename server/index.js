@@ -32,6 +32,8 @@ async function start() {
 
   // 3. Create Express app
   const app = express();
+  // 禁用 ETag：避免浏览器对 API 响应做 304 缓存协商（axios 拿到空响应体导致前端回退静态数据）
+  app.disable('etag');
 
   // 4. Global middleware
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
@@ -43,6 +45,7 @@ async function start() {
   app.use('/api/favorites', require('./routes/favorites'));
   app.use('/api/checkins', require('./routes/checkins'));
   app.use('/api/admin', require('./routes/admin'));
+  app.use('/api/messages', require('./routes/messages'));
 
   // 6. Health check
   app.get('/api/health', (req, res) => {

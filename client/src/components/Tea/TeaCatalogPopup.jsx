@@ -2,6 +2,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { getMonths } from '../../utils/season.js';
+import { getProductImageSrc } from '../../utils/modernTea.js';
 
 const DEFAULT_CATEGORIES = ['全部', '绿茶', '红茶', '乌龙茶', '白茶', '黄茶', '黑茶', '花茶'];
 const CATEGORY_ICON_FILES = {
@@ -18,7 +19,8 @@ function categoryIconSrc(category) {
   return `/images/category/${CATEGORY_ICON_FILES[category] || 'green'}.png`;
 }
 
-function TeaCatalogPopup({ teas, isOpen, onClose, onTeaSelect }) {
+function TeaCatalogPopup({ teas, modernProducts = [], isOpen, onClose, onTeaSelect, onProductSelect }) {
+  const [tab, setTab] = useState('origin');
   const [category, setCategory] = useState('全部');
   const categories = useMemo(() => ['全部', ...DEFAULT_CATEGORIES.filter((item) => item !== '全部' && teas.some((tea) => tea.category === item))], [teas]);
   const filtered = useMemo(() => category === '全部' ? teas : teas.filter((tea) => tea.category === category), [category, teas]);
@@ -46,43 +48,84 @@ function TeaCatalogPopup({ teas, isOpen, onClose, onTeaSelect }) {
             <header className="flex items-center justify-between px-5 py-3">
               <div>
                 <h3 className="font-serif text-xl font-semibold text-[var(--ink)]">茶信录</h3>
-                <p className="mt-1 text-xs text-[var(--ink-faint)]">按茶类与采制时令查找产区</p>
+                <p className="mt-1 text-xs text-[var(--ink-faint)]">产地原叶茶 · 现代茶饮溯源</p>
               </div>
               <button type="button" onClick={onClose} className="icon-button" title="关闭">×</button>
             </header>
-            <div className="flex gap-2 overflow-x-auto px-5 pb-3">
-              {categories.map((item) => (
-                <button key={item} type="button" onClick={() => setCategory(item)} className={`ui-pill text-sm ${category === item ? 'active' : ''}`}>{item}</button>
-              ))}
+
+            {/* 双 Tab：产地茶 / 现代茶饮 */}
+            <div className="flex gap-2 px-5 pb-3">
+              <button type="button" onClick={() => setTab('origin')} className={`ui-pill text-sm ${tab === 'origin' ? 'active' : ''}`}>产地茶</button>
+              <button type="button" onClick={() => setTab('modern')} className={`ui-pill text-sm ${tab === 'modern' ? 'active' : ''}`}>现代茶饮</button>
             </div>
-            <div className="overflow-y-auto px-5 pb-5">
-              <div className="space-y-2">
-                {filtered.map((tea) => {
-                  const months = getMonths(tea.maturity_months).slice(0, 3);
-                  return (
-                    <button
-                      type="button"
-                      key={tea.id}
-                      onClick={() => { onTeaSelect?.(tea); onClose(); }}
-                      className="grid w-full grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 rounded-[20px] bg-white/26 p-3 text-left transition duration-[920ms] ease-out hover:bg-white/38"
-                    >
-                      <img
-                        src={categoryIconSrc(tea.category)}
-                        alt={tea.category}
-                        className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-[var(--ink)]">{tea.name}</span>
-                        <span className="mt-1 block truncate text-xs text-[var(--ink-faint)]">{tea.province} · {tea.city} · {tea.category}</span>
-                      </span>
-                      <span className="flex flex-wrap justify-end gap-1">
-                        {months.length ? months.map((month) => <span key={month} className="month-tag active">{month}月</span>) : <span className="month-tag">四季</span>}
-                      </span>
-                    </button>
-                  );
-                })}
+
+            {tab === 'origin' ? (
+              <>
+                <div className="flex gap-2 overflow-x-auto px-5 pb-3">
+                  {categories.map((item) => (
+                    <button key={item} type="button" onClick={() => setCategory(item)} className={`ui-pill text-sm ${category === item ? 'active' : ''}`}>{item}</button>
+                  ))}
+                </div>
+                <div className="overflow-y-auto px-5 pb-5">
+                  <div className="space-y-2">
+                    {filtered.map((tea) => {
+                      const months = getMonths(tea.maturity_months).slice(0, 3);
+                      return (
+                        <button
+                          type="button"
+                          key={tea.id}
+                          onClick={() => { onTeaSelect?.(tea); onClose(); }}
+                          className="grid w-full grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 rounded-[20px] bg-white/26 p-3 text-left transition duration-[920ms] ease-out hover:bg-white/38"
+                        >
+                          <img
+                            src={categoryIconSrc(tea.category)}
+                            alt={tea.category}
+                            className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-[var(--ink)]">{tea.name}</span>
+                            <span className="mt-1 block truncate text-xs text-[var(--ink-faint)]">{tea.province} · {tea.city} · {tea.category}</span>
+                          </span>
+                          <span className="flex flex-wrap justify-end gap-1">
+                            {months.length ? months.map((month) => <span key={month} className="month-tag active">{month}月</span>) : <span className="month-tag">四季</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="overflow-y-auto px-5 pb-5">
+                {modernProducts.length === 0 ? (
+                  <p className="py-10 text-center text-xs text-[var(--ink-faint)]">暂无可溯源的现代茶饮</p>
+                ) : (
+                  <div className="space-y-2">
+                    {modernProducts.map((product) => (
+                      <button
+                        type="button"
+                        key={product.id}
+                        onClick={() => { onProductSelect?.(product); onClose(); }}
+                        className="grid w-full grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 rounded-[20px] bg-white/26 p-3 text-left transition duration-[920ms] ease-out hover:bg-white/38"
+                      >
+                        <img
+                          src={getProductImageSrc(product.name) || '/images/beverage-icons/cup.png'}
+                          alt={product.name}
+                          loading="lazy"
+                          className="h-11 w-11 flex-shrink-0 rounded-full object-cover"
+                          onError={(event) => { event.currentTarget.src = '/images/beverage-icons/cup.png'; }}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-[var(--ink)]">{product.brand} · {product.name}</span>
+                          <span className="mt-1 block truncate text-xs text-[var(--ink-faint)]">{product.type} · 茶底：{product.anchorTeaName}（{product.anchorProvince}）</span>
+                        </span>
+                        <span className="text-xs text-[var(--ink-faint)]">溯源</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </motion.section>
         </div>
       )}

@@ -6,10 +6,42 @@ const { success, fail } = require('../utils/response');
 
 const router = express.Router();
 
+// 后端行 → 前端字段映射（snake_case → camelCase，JSON 字段解析为数组）
+function parseJson(str, fallback) {
+  if (!str) return fallback;
+  try { return JSON.parse(str); } catch (e) { return fallback; }
+}
+
+function mapTea(row) {
+  return {
+    // 前端以 slug（字符串 id）为 key：图片路径 /images/tea/{categoryEn}/{id}.jpg 与
+    // modernTea 工具的产品 id（${tea.id}__${brand}__${product}）都依赖它
+    id: row.slug || String(row.id),
+    name: row.name,
+    province: row.province,
+    city: row.city,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    category: row.category,
+    categoryEn: row.category_en,
+    maturity_months: row.maturity_months,
+    seasons: row.seasons,
+    meaning: row.meaning,
+    brewingTemp: row.brewing_temp,
+    brewingTime: row.brewing_time,
+    story: row.story,
+    checkinSpots: parseJson(row.checkin_spots, []),
+    modern_forms: parseJson(row.modern_forms, []),
+    beverage_chain: row.beverage_chain,
+    image_url: row.image_url,
+    is_mountain: row.is_mountain,
+  };
+}
+
 // GET /api/teas - 获取全部茶品
 router.get('/', (req, res) => {
   const db = getDb();
-  const teas = db.prepare('SELECT * FROM teas ORDER BY province, city').all();
+  const teas = db.prepare('SELECT * FROM teas ORDER BY province, city').all().map(mapTea);
   res.json(success({ teas, total: teas.length }));
 });
 
@@ -27,7 +59,7 @@ router.get('/season/:season', validate([
 ]), (req, res) => {
   const db = getDb();
   const { season } = req.params;
-  const teas = db.prepare('SELECT * FROM teas WHERE seasons LIKE ? ORDER BY province').all(`%${season}%`);
+  const teas = db.prepare('SELECT * FROM teas WHERE seasons LIKE ? ORDER BY province').all(`%${season}%`).map(mapTea);
   res.json(success({ teas, total: teas.length }));
 });
 
@@ -37,20 +69,19 @@ router.get('/month/:month', validate([
 ]), (req, res) => {
   const db = getDb();
   const { month } = req.params;
-  const teas = db.prepare('SELECT * FROM teas WHERE maturity_months LIKE ? ORDER BY province').all(`%${month}%`);
+  const teas = db.prepare('SELECT * FROM teas WHERE maturity_months LIKE ? ORDER BY province').all(`%${month}%`).map(mapTea);
   res.json(success({ teas, total: teas.length }));
 });
 
-// GET /api/teas/:id - 获取单个茶品详情
-router.get('/:id', validate([
-  param('id').isInt().withMessage('ID 必须为整数'),
-]), (req, res) => {
+// GET /api/teas/:id - 获取单个茶品详情（支持数字 id 或 slug）
+router.get('/:id', (req, res) => {
   const db = getDb();
-  const tea = db.prepare('SELECT * FROM teas WHERE id = ?').get(req.params.id);
-  if (!tea) {
+  const { id } = req.params;
+  const row = db.prepare('SELECT * FROM teas WHERE slug = ? OR id = ?').get(id, Number(id) || -1);
+  if (!row) {
     return res.status(404).json(fail('未找到该茶品信息'));
   }
-  res.json(success({ tea }));
+  res.json(success({ tea: mapTea(row) }));
 });
 
 module.exports = router;

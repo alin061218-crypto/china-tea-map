@@ -68,6 +68,13 @@ export const checkinAPI = {
   remove: (id) => api.delete(`/checkins/${id}`),
 };
 
+// ── Messages（茶友留墨）──
+export const messageAPI = {
+  getAll: () => api.get('/messages'),
+  create: (data) => api.post('/messages', data),
+  remove: (id) => api.delete(`/messages/${id}`),
+};
+
 // ── Admin ──
 /** @unused — no admin UI in client */
 export const adminAPI = {

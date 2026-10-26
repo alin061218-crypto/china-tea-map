@@ -13,3 +13,10 @@ client/tmp/
 .codex-context.md
 __pycache__/
 *.pyc
+
+# Local tooling / IDE
+.claude/
+.agents/
+.impeccable/
+.venv-imagegen/
+tmp/

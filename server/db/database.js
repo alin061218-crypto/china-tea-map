@@ -223,6 +223,15 @@ function initTables(database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nickname TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tea_id INTEGER,
+      tea_name TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 

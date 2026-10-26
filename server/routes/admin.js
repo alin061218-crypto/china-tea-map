@@ -7,6 +7,15 @@ const { success, fail } = require('../utils/response');
 
 const router = express.Router();
 
+// 数组或 JSON 字符串 → 存库 JSON 字符串（null 兜底）
+function toJson(value, fallback = null) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.stringify(JSON.parse(value)); } catch (e) { return value; }
+  }
+  return JSON.stringify(value);
+}
+
 // 所有路由都需要管理员权限
 router.use(authMiddleware, adminMiddleware);
 
@@ -59,12 +68,21 @@ router.post('/teas', validate([
   body('longitude').isFloat({ min: 73, max: 135 }).withMessage('经度范围 73-135'),
 ]), (req, res) => {
   const db = getDb();
-  const { name, province, city, latitude, longitude, category, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain } = req.body;
+  const b = req.body;
+  const { name, province, city, latitude, longitude, category, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain } = b;
+  const category_en = b.category_en || null;
+  const brewing_temp = b.brewing_temp || null;
+  const brewing_time = b.brewing_time || null;
+  const story = b.story || null;
+  const checkin_spots = toJson(b.checkin_spots);
+  const modern_forms = toJson(b.modern_forms);
+  const beverage_chain = b.beverage_chain || null;
+  const slug = b.slug || name;
 
   const result = db.prepare(`
-    INSERT INTO teas (name, province, city, latitude, longitude, category, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, province, city || null, latitude, longitude, category || null, maturity_months || null, seasons || null, local_characteristics || null, appearance || null, history || null, spirit || null, meaning || null, image_url || null, is_mountain || 0);
+    INSERT INTO teas (name, province, city, latitude, longitude, category, category_en, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain, brewing_temp, brewing_time, story, checkin_spots, modern_forms, beverage_chain, slug)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(name, province, city || null, latitude, longitude, category || null, category_en, maturity_months || null, seasons || null, local_characteristics || null, appearance || null, history || null, spirit || null, meaning || null, image_url || null, is_mountain || 0, brewing_temp, brewing_time, story, checkin_spots, modern_forms, beverage_chain, slug);
 
   const tea = db.prepare('SELECT * FROM teas WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(success({ tea }, '茶叶信息已添加'));
@@ -78,15 +96,17 @@ router.put('/teas/:id', validate([
   const existing = db.prepare('SELECT * FROM teas WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json(fail('未找到该茶叶信息'));
 
-  const { name, province, city, latitude, longitude, category, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain } = req.body;
+  const b = req.body;
+  const { name, province, city, latitude, longitude, category, maturity_months, seasons, local_characteristics, appearance, history, spirit, meaning, image_url, is_mountain } = b;
 
   db.prepare(`
-    UPDATE teas SET name=?, province=?, city=?, latitude=?, longitude=?, category=?, maturity_months=?, seasons=?, local_characteristics=?, appearance=?, history=?, spirit=?, meaning=?, image_url=?, is_mountain=?, updated_at=CURRENT_TIMESTAMP
+    UPDATE teas SET name=?, province=?, city=?, latitude=?, longitude=?, category=?, category_en=?, maturity_months=?, seasons=?, local_characteristics=?, appearance=?, history=?, spirit=?, meaning=?, image_url=?, is_mountain=?, brewing_temp=?, brewing_time=?, story=?, checkin_spots=?, modern_forms=?, beverage_chain=?, slug=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=?
   `).run(
     name || existing.name, province || existing.province, city !== undefined ? city : existing.city,
     latitude || existing.latitude, longitude || existing.longitude,
     category !== undefined ? category : existing.category,
+    b.category_en !== undefined ? b.category_en : existing.category_en,
     maturity_months !== undefined ? maturity_months : existing.maturity_months,
     seasons !== undefined ? seasons : existing.seasons,
     local_characteristics !== undefined ? local_characteristics : existing.local_characteristics,
@@ -96,6 +116,13 @@ router.put('/teas/:id', validate([
     meaning !== undefined ? meaning : existing.meaning,
     image_url !== undefined ? image_url : existing.image_url,
     is_mountain !== undefined ? is_mountain : existing.is_mountain,
+    b.brewing_temp !== undefined ? b.brewing_temp : existing.brewing_temp,
+    b.brewing_time !== undefined ? b.brewing_time : existing.brewing_time,
+    b.story !== undefined ? b.story : existing.story,
+    b.checkin_spots !== undefined ? toJson(b.checkin_spots, existing.checkin_spots) : existing.checkin_spots,
+    b.modern_forms !== undefined ? toJson(b.modern_forms, existing.modern_forms) : existing.modern_forms,
+    b.beverage_chain !== undefined ? b.beverage_chain : existing.beverage_chain,
+    b.slug !== undefined ? b.slug : (existing.slug || name),
     req.params.id
   );
 
